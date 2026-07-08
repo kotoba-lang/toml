@@ -17,11 +17,48 @@
         name = \"app\" …"
   (:require [clojure.string :as str]))
 
+(def ^:private hex-digits "0123456789ABCDEF")
+
+(defn- hex4
+  "4-digit uppercase hex for a TOML `\\uXXXX` escape (portable: bit ops +
+  a lookup table, no Long/Integer interop that would only work on :clj)."
+  [n]
+  (apply str (for [shift [12 8 4 0]] (nth hex-digits (bit-and (bit-shift-right n shift) 0xf)))))
+
+(defn- char-code-at [s i]
+  #?(:clj (int (.charAt ^String s (int i)))
+     :cljs (.charCodeAt s i)))
+
+(defn- toml-escape-string
+  "Quote+escape `s` as a TOML basic string. `pr-str` escapes the same six
+  characters TOML's own \\b \\t \\n \\f \\r/\\\\/\\\" do, but passes every OTHER
+  ASCII control character (0x00-0x1F except tab, and 0x7F) through raw --
+  a spec-compliant TOML parser (e.g. taplo) rejects those as an invalid
+  unescaped control character in a basic string, even though pr-str's
+  output looks fine to the eye. Escape those via \\uXXXX instead."
+  [s]
+  (str \"
+       (apply str
+              (for [i (range (count s))]
+                (let [ch   (subs s i (inc i))
+                      code (char-code-at s i)]
+                  (cond
+                    (= ch "\"") "\\\""
+                    (= ch "\\") "\\\\"
+                    (= code 8)  "\\b"
+                    (= code 9)  "\\t"
+                    (= code 10) "\\n"
+                    (= code 12) "\\f"
+                    (= code 13) "\\r"
+                    (or (< code 0x20) (= code 0x7f)) (str "\\u" (hex4 code))
+                    :else ch))))
+       \"))
+
 (defn- scalar [v]
   (cond
-    (string? v)  (pr-str v)                ;; \"quoted\" with escapes
+    (string? v)  (toml-escape-string v)
     (boolean? v) (str v)
-    (keyword? v) (pr-str (name v))         ;; a keyword value → string
+    (keyword? v) (toml-escape-string (name v)) ;; a keyword value → string
     (number? v)  (str v)
     (vector? v)  (str "[" (str/join ", " (map scalar v)) "]")                       ;; inline array
     (map? v)     (str "{ " (str/join ", " (for [[k vv] v] (str (name k) " = " (scalar vv)))) " }")  ;; inline table
