@@ -12,6 +12,20 @@
   (is (= "xs = [1, 2, 3]\n"             (t/toml {:xs [1 2 3]})) "inline array")
   (is (= "[a]\nk = \"v\"\n"             (t/toml {:a {:k "v"}})) "nested map → [table], no leading blank line"))
 
+(deftest control-characters-are-escaped
+  (is (= "title = \"x\\u0007y\"\n" (t/toml {:title (str "x" (char 7) "y")}))
+      "a raw ASCII control char (0x07, BEL) other than \\b\\t\\n\\f\\r must be
+       \\uXXXX-escaped -- pr-str alone passes it through unescaped, which a
+       spec-compliant TOML parser rejects as an invalid unescaped control
+       character even though the output looks fine to the eye")
+  (is (= "title = \"x\\u0000y\"\n" (t/toml {:title (str "x" (char 0) "y")}))
+      "NUL byte")
+  (is (= "title = \"x\\u007Fy\"\n" (t/toml {:title (str "x" (char 0x7f) "y")}))
+      "DEL (0x7F) is also a control character requiring escape")
+  (is (= "title = \"x\\ty\"\n" (t/toml {:title "x\ty"}))
+      "tab still escapes to \\t as before -- only the control chars pr-str
+       used to pass through raw are newly affected"))
+
 (deftest a-config
   (let [src (t/toml {:title "cfg"
                      :package {:name "kami" :version "0.1.0" :keywords ["edn" "hiccup"]}
