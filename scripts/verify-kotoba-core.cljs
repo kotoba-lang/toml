@@ -86,7 +86,19 @@
    ["integer plus"          "integer-value" ["+7"] [true 7]]
    ;; The one that matters most: a float must NOT come back as its truncation.
    ["float refused"         "integer-value" ["1.0"] [false "not an integer"]]
-   ["not a number"          "integer-value" ["abc"] [false "not an integer"]]])
+   ["not a number"          "integer-value" ["abc"] [false "not an integer"]]
+
+   ;; ── boundary regressions ────────────────────────────────────────────────
+   ;; Three separate places cut at a FIXED offset, which reads as a cheap test
+   ;; and is a trap the moment the value contains multi-byte text. All three
+   ;; were found by running this core over a real config (net-kotobase's
+   ;; deps.toml, 2026-08-11); each answers now instead of trapping.
+   ["prefix test vs multi-byte"  "scalar-kind" ["\"金融/医療/政府 向け\""] "string"]
+   ["suffix test vs multi-byte"  "basic-string-value" ["\"unterminated 日本語"]
+    [false "string is not closed"]]
+   ["bracket test vs multi-byte" "table-path" ["- B1 反 equivocation: 未実装"]
+    [false "table header is not closed"]]
+   ["multiline opener still seen" "scalar-kind" ["\"\"\"日本語"] "multiline-string-open"]])
 
 (defn- normalise [v]
   (cond
