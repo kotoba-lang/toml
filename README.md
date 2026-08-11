@@ -1,11 +1,92 @@
 # kotoba-lang/toml
 
-Kotoba DSL package for `kotoba.toml`.
+TOML, from both directions.
 
-The implementation lives in `toml.core`; `kotoba.toml` is provided as a compatibility facade.
+| direction | where | language | status |
+|---|---|---|---|
+| data → TOML (emit) | `src/toml/core.cljc`, facade `src/kotoba/toml.cljc` | `.cljc` | in use |
+| TOML → data (read) | `kotoba/toml_scan_core.kotoba` | **Kotoba** | correct, **not yet usable on real files** — see Fuel |
 
-## Test
+## Emitting
+
+`toml.core` turns a map into TOML: scalars and arrays become `key = value`,
+nested maps become `[table]` sections, and a vector of maps becomes `[[name]]`.
 
 ```sh
 clojure -M:test
 ```
+
+## Reading — `kotoba/toml_scan_core.kotoba`
+
+The decision half of a reader, written in Kotoba: every question with a
+yes/no or which-one answer over one physical line — what kind of line is this,
+where does the key end, is this key well-formed, what type is this scalar, what
+does this escape mean.
+
+Assembling the nested table is deliberately NOT here. That is collection work,
+and this follows the boundary `kotoba-lang/murakumo`'s `infer_join_core` draws
+("partition-work / enrollment map assembly stay cljc"): the decision core moves
+to Kotoba, the collection assembly stays with its caller.
+
+Every function is total — `[:result T :string]`, never a throw, per the
+language's `:explicit-errors` invariant. **Anything the subset does not
+implement is an error, never a guess.** A `1.0` comes back as
+`[false "not an integer"]` rather than as `1`; a `\uXXXX` escape is refused
+rather than approximated. A parser that silently mis-reads a config it does not
+understand is worse than one that refuses it.
+
+### Covered / refused
+
+Covered: comments, blank lines, `[table]` and `[[array of tables]]` headers,
+bare `key = value`, basic strings with `\n \t \r \" \\`, integers including `_`
+separators and a leading sign, booleans, and the openers for arrays and
+multi-line strings (so the caller can join continuation lines before asking
+again).
+
+Refused, explicitly: quoted keys, `\uXXXX`, `\b` and `\f` (the Kotoba reader
+rejects those escapes in source, so this module cannot produce those bytes at
+all — measured 2026-08-11), floats, dates, and anything else.
+
+### Multi-byte text
+
+`string-substring` and `string-code-point-at` both take **byte** offsets and
+both **trap** on a non-boundary offset. So every scan advances by a width
+derived from the codepoint, and substrings are only cut at offsets a scan has
+already proved to be boundaries. Japanese values, emoji and Japanese comments
+pass through intact; a non-ASCII *bare key* is refused (it is not legal TOML)
+rather than trapping.
+
+This is not hypothetical tidiness: the first draft walked byte by byte and
+trapped on the first non-ASCII value it saw.
+
+### Build and check
+
+```sh
+kotoba -M compile kotoba/toml_scan_core.kotoba --target js --output /tmp/core.mjs
+nbb scripts/verify-kotoba-core.cljs /tmp/core.mjs
+```
+
+39 cases. Compiling needs the Kotoba compiler (`kotoba-lang/amu`, which needs a
+JVM); running the artifact needs only node.
+
+The checker is known to fail when it should: making `integer-value` return the
+truncation of `1.0` instead of an error turns two cases red.
+
+### Fuel — why this does not drive a consumer yet
+
+A Kotoba module carries **512 function-entry charges for the whole life of an
+instance and never replenishes them**. That is the runtime's design, not a
+configuration: `kotoba-lang/compiler`'s `backend/cljs.clj` states it as
+"permanently exhausted after 512 total function calls across its whole lifetime
+— not 512 per top-level call", and WASM uses the same module-global counter.
+
+Measured 2026-08-11: one instance sustained **seven** `line-kind` calls on an
+8-byte line. A single 400-character line exhausts the budget inside one call,
+because a scan charges per codepoint.
+
+So this core is correct but cannot yet read a real config — `net-kotobase`'s
+`deps.toml`, the file that motivated it, has a ~500-character `description`.
+Raising or parameterising that bound is a compiler change and a safety
+parameter, so it is not worked around here. Until then the core stands as the
+executable specification of the reading half, and callers that need TOML today
+still use a host parser.
