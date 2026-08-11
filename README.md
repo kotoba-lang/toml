@@ -5,7 +5,7 @@ TOML, from both directions.
 | direction | where | language | status |
 |---|---|---|---|
 | data → TOML (emit) | `src/toml/core.cljc`, facade `src/kotoba/toml.cljc` | `.cljc` | in use |
-| TOML → data (read) | `kotoba/toml_scan_core.kotoba` | **Kotoba** | correct, **not yet usable on real files** — see Fuel |
+| TOML → data (read) | `kotoba/toml_scan_core.kotoba` | **Kotoba** | in use — see Consumers |
 
 ## Emitting
 
@@ -66,13 +66,36 @@ kotoba -M compile kotoba/toml_scan_core.kotoba --target js --output /tmp/core.mj
 nbb scripts/verify-kotoba-core.cljs /tmp/core.mjs
 ```
 
-39 cases. Compiling needs the Kotoba compiler (`kotoba-lang/amu`, which needs a
+43 cases. Compiling needs the Kotoba compiler (`kotoba-lang/amu`, which needs a
 JVM); running the artifact needs only node.
+
+Four of those cases are boundary regressions. Cutting at a FIXED offset — a
+prefix test, a suffix test, a closing-bracket test — reads as cheap and is a
+trap the moment the value holds multi-byte text; all three shapes were present
+in the first version and all three were found by running this core over a real
+config file rather than over its own examples.
 
 The checker is known to fail when it should: making `integer-value` return the
 truncation of `1.0` instead of an error turns two cases red.
 
-### Fuel — why this does not drive a consumer yet
+### Consumers
+
+`network-awai/net-kotobase` reads its `deps.toml` through this core
+(`scripts/check-deps-toml.cljs`), replacing an embedded python3 block that
+imported `tomllib` — stdlib only from Python 3.11, while four of the five
+murakumo CI nodes run 3.9.6, so that check answered differently depending on
+which node it landed on.
+
+Two things a caller has to know:
+
+- **Instantiate per value.** Fuel is charged per function entry and never
+  replenished within an instance, so an instance is a budget, not a session.
+- **Give node a bigger stack** (`node --stack-size=8000 …`). The core scans one
+  codepoint per JS frame — the Kotoba→JS emitter does not do TCO (compiler
+  ADR 0173 lists it as a follow-up) — so scan depth is bounded by the host
+  stack, and a 2,935-character line overflows nbb's default.
+
+### Fuel
 
 A Kotoba module carries **512 function-entry charges for the whole life of an
 instance and never replenishes them**. That is the runtime's design, not a
@@ -84,9 +107,12 @@ Measured 2026-08-11: one instance sustained **seven** `line-kind` calls on an
 8-byte line. A single 400-character line exhausts the budget inside one call,
 because a scan charges per codepoint.
 
-So this core is correct but cannot yet read a real config — `net-kotobase`'s
-`deps.toml`, the file that motivated it, has a ~500-character `description`.
-Raising or parameterising that bound is a compiler change and a safety
-parameter, so it is not worked around here. Until then the core stands as the
-executable specification of the reading half, and callers that need TOML today
-still use a host parser.
+That bound is now the caller's to declare: `kotoba -M compile … --policy` with
+`{:budgets {:fuel n}}` sizes the artifact's budget, and the default is still
+512 (kotoba-lang/compiler + kotoba-script, 2026-08-11). The vendored artifact in
+net-kotobase is built at 200,000.
+
+Raising it does not widen what the module may DO — it requests no capabilities,
+so it can observe nothing at any budget, and memory stays bounded by the
+separate node/byte limits. It exposes the NEXT bound instead: the host stack,
+which is why callers pass `--stack-size`.
