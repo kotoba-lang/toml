@@ -25,7 +25,7 @@
 ;; below are sized to fit; the limit is recorded in the README.
 (ns verify-kotoba-core
   (:require ["node:path" :as path]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (def artifact
   (let [a (first *command-line-args*)]
