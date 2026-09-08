@@ -3,7 +3,7 @@
    sections, dotted nested tables, array-of-tables [[name]], and the bare-keys-before-subtables rule.
    taplo validates the same output for real in `bb gate`."
   (:require [clojure.test :refer [deftest is]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [toml.core :as t]))
 
 (deftest scalars-and-tables

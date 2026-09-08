@@ -15,7 +15,7 @@
         name = \"kami\" …
         [[bin]]
         name = \"app\" …"
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def ^:private hex-digits "0123456789ABCDEF")
 
