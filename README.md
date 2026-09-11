@@ -13,7 +13,7 @@ TOML, from both directions.
 nested maps become `[table]` sections, and a vector of maps becomes `[[name]]`.
 
 ```sh
-clojure -M:test
+kbb -M:test
 ```
 
 ## Reading — `kotoba/toml_scan_core.kotoba`
@@ -63,7 +63,7 @@ trapped on the first non-ASCII value it saw.
 
 ```sh
 kotoba -M compile kotoba/toml_scan_core.kotoba --target js --output /tmp/core.mjs
-nbb scripts/verify-kotoba-core.cljk /tmp/core.mjs
+kbb --backend sci scripts/verify-kotoba-core.cljk /tmp/core.mjs
 ```
 
 43 cases. Compiling needs the Kotoba compiler (`kotoba-lang/amu`, which needs a

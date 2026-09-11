@@ -1,7 +1,7 @@
 (ns toml.core-test
   "Golden tests for kotoba.toml — the TOML hiccup. They pin scalar/array/inline-table values, [table]
    sections, dotted nested tables, array-of-tables [[name]], and the bare-keys-before-subtables rule.
-   taplo validates the same output for real in `bb gate`."
+   taplo validates the same output for real in `kbb -M:gate`."
   (:require [clojure.test :refer [deftest is]]
             [kotoba.lang.text :as str]
             [toml.core :as t]))
