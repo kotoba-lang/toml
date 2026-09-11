@@ -4,7 +4,7 @@ TOML, from both directions.
 
 | direction | where | language | status |
 |---|---|---|---|
-| data → TOML (emit) | `src/toml/core.cljc`, facade `src/kotoba/toml.cljc` | `.cljc` | in use |
+| data → TOML (emit) | `src/toml/core.cljk`, facade `src/kotoba/toml.cljk` | `.cljc` | in use |
 | TOML → data (read) | `kotoba/toml_scan_core.kotoba` | **Kotoba** | in use — see Consumers |
 
 ## Emitting
@@ -63,7 +63,7 @@ trapped on the first non-ASCII value it saw.
 
 ```sh
 kotoba -M compile kotoba/toml_scan_core.kotoba --target js --output /tmp/core.mjs
-nbb scripts/verify-kotoba-core.cljs /tmp/core.mjs
+nbb scripts/verify-kotoba-core.cljk /tmp/core.mjs
 ```
 
 43 cases. Compiling needs the Kotoba compiler (`kotoba-lang/amu`, which needs a
