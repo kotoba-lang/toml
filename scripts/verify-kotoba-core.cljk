@@ -8,7 +8,7 @@
 ;; rather than building it.
 ;;
 ;;   kotoba -M compile kotoba/toml_scan_core.kotoba --target js --output core.mjs
-;;   nbb scripts/verify-kotoba-core.cljs core.mjs
+;;   nbb scripts/verify-kotoba-core.cljk core.mjs
 ;;
 ;; ## One instance per case, deliberately
 ;;
@@ -30,7 +30,7 @@
 (def artifact
   (let [a (first *command-line-args*)]
     (when-not a
-      (println "usage: nbb scripts/verify-kotoba-core.cljs <compiled-artifact.mjs>")
+      (println "usage: nbb scripts/verify-kotoba-core.cljk <compiled-artifact.mjs>")
       (js/process.exit 2))
     (if (str/starts-with? a "/") a (path/join (js/process.cwd) a))))
 
